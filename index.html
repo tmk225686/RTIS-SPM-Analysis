@@ -477,7 +477,7 @@ document.getElementById("plotGraph").addEventListener("click", () => {
 
 
   /* ------- Stop Station Speed Table ------- */
-  const distCheck = [1000,750,500,110,20];
+  const distCheck = [2000,1000,750,500,110,20];
   const irregularities = [];
 
   const stopStations = [];
@@ -548,7 +548,8 @@ document.getElementById("plotGraph").addEventListener("click", () => {
         <td>${formatDateTime(r.stopTime)}</td>
         <td>${formatDateTime(r.startTime)}</td>
         ${distCheck.map(d=>{
-          const v = r["s"+d];
+          const raw = r["s"+d];
+          const v = (raw === "-" ? "-" : Math.round(raw));
           if(v === "-") return `<td>-</td>`;
           if(d===1000 && v>50) return `<td class="highlight-irregular">${v}</td>`;
           if(d===110  && v>=20) return `<td class="highlight-alerti">${v}</td>`;
