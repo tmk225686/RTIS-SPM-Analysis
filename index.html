@@ -784,19 +784,31 @@ document.getElementById("exportSheet").addEventListener("click", () => {
 
 // Extract irregularities from bottom table
 function collectIrregularities() {
-  const irregularityTable = document.querySelector("#speedTableContainer table:last-of-type");
-  if (!irregularityTable) return "-";
+  const tables = document.querySelectorAll("#speedTableContainer table");
+
+  let irregularityTable = null;
+
+  tables.forEach(t => {
+    const firstCell = t.querySelector("th, td");
+    if (firstCell && firstCell.innerText.includes("Irregular")) {
+      irregularityTable = t;
+    }
+  });
+
+  if (!irregularityTable) return "Nil";
 
   let arr = [];
   const rows = irregularityTable.querySelectorAll("tr");
 
   rows.forEach((r, idx) => {
-    if (idx === 0) return; // skip header row
+    if (idx === 0) return;
     const cols = r.querySelectorAll("td");
-    if (cols.length > 1) arr.push(cols[1].innerText.trim());
+    if (cols.length > 1 && cols[1].innerText.trim()) {
+      arr.push(cols[1].innerText.trim());
+    }
   });
 
-  return arr.join("; ");
+  return arr.length ? arr.join("; ") : "Nil";
 }
 </script>
 
