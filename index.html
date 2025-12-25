@@ -403,6 +403,39 @@ document.getElementById("plotGraph").addEventListener("click", () => {
   const analysedBy = document.getElementById("analysedBy").value.trim();
   const analysedOn = document.getElementById("analysedOn").value;
 
+/* -------- Speed Limit Horizontal Lines (110 & 130 kmph) -------- */
+const speedLimitLines = {
+  id: "speedLimitLines",
+  afterDraw(chart) {
+    const ctx = chart.ctx;
+    const yScale = chart.scales.y;
+    const left = chart.chartArea.left;
+    const right = chart.chartArea.right;
+
+    ctx.save();
+    ctx.setLineDash([6, 6]);
+
+    // 110 kmph line
+    let y110 = yScale.getPixelForValue(110);
+    ctx.strokeStyle = "green";
+    ctx.beginPath();
+    ctx.moveTo(left, y110);
+    ctx.lineTo(right, y110);
+    ctx.stroke();
+
+    // 130 kmph line
+    let y130 = yScale.getPixelForValue(130);
+    ctx.strokeStyle = "red";
+    ctx.beginPath();
+    ctx.moveTo(left, y130);
+    ctx.lineTo(right, y130);
+    ctx.stroke();
+
+    ctx.restore();
+  }
+};
+
+
   const prefix = start.substring(0, 2).toUpperCase();
 
   const startIdx = allData.findIndex(d => d.st && d.st.toUpperCase().startsWith(prefix));
@@ -456,6 +489,19 @@ document.getElementById("plotGraph").addEventListener("click", () => {
 
   const speeds = seg.map(x=>x.spd);
   const dists = seg.map(x=>x.dist);
+/* -------- Max Speed of Loco Pilot (RTIS per-second data) -------- */
+let maxRec = seg[0];
+
+for (let i = 1; i < seg.length; i++) {
+  if (seg[i].spd > maxRec.spd) {
+    maxRec = seg[i];
+  }
+}
+
+const maxSpeed = maxRec.spd.toFixed(1);
+const maxSpeedTime = maxRec.gps || "-";
+const maxSpeedStation = maxRec.st || "-";
+
 
   /* ------- Station Indices ------- */
   const firstIdx = {};
@@ -524,21 +570,62 @@ document.getElementById("plotGraph").addEventListener("click", () => {
   });
 
   /* ------- Summary Table ------- */
-  const summary =
-    `<table style="width:70%;margin:auto;">
-      <tr><th colspan="2">Performance Analysis Summary</th></tr>
-      <tr><td><b>Driver Name</b></td><td>${driver || "-"}</td></tr>
-      <tr><td><b>Designation</b></td><td>${driverDesig || "-"}</td></tr>
-      <tr><td><b>Driver HQ</b></td><td>${driverHQ || "-"}</td></tr>
-      <tr><td><b>Train No</b></td><td>${train || "-"}</td></tr>
-      <tr><td><b>Loco No</b></td><td>${loco || "-"}</td></tr>
-      <tr><td><b>Section</b></td><td>${section}</td></tr>
-      <tr><td><b>Date</b></td><td>${formatDate(runDate)}</td></tr>
-      <tr><td><b>Analysed By</b></td><td>${analysedBy || "-"}</td></tr>
-      <tr><td><b>Analysed On</b></td><td>${formatDate(analysedOn) || "-"}</td></tr>
-      <tr><td><b>Brake Feel Test</b></td><td>${feel.text}</td></tr>
-      <tr><td><b>Brake Power Test</b></td><td>${power.text}</td></tr>
-    </table>`;
+ const summary =
+  `<table style="width:95%;margin:0 auto;border-collapse:collapse;">
+    <tr>
+      <th colspan="6">Performance Analysis Summary</th>
+    </tr>
+
+    <!-- Row 1 -->
+    <tr>
+      <td>LP Name</td>
+      <td>${driver || "-"}</td>
+      <td>Designation</td>
+      <td>${driverDesig || "-"}</td>
+      <td>HQ</td>
+      <td>${driverHQ || "-"}</td>
+    </tr>
+
+    <!-- Row 2 -->
+    <tr>
+      <td>Date</td>
+      <td>${formatDate(runDate)}</td>
+      <td>Train No</td>
+      <td>${train || "-"}</td>
+      <td>Loco No</td>
+      <td>${loco || "-"}</td>
+    </tr>
+
+    <!-- Row 3 -->
+    <tr> 
+      <td>Section</td>
+      <td>${section || "-"}</td>
+      <td>Analysed By</td>
+      <td>${analysedBy || "-"}</td>
+      <td>Analysed On</td>
+      <td>${formatDate(analysedOn) || "-"}</td>
+    </tr>
+
+     <!-- Row 4 -->
+    <tr>
+      <td>Brake Feel Test</td>
+      <td colspan="2">${feel.text}</td>
+      <td>Brake Power Test</td>
+      <td colspan="2">${power.text}</td>
+    </tr>
+<!-- Row 5 : Max Speed of Loco Pilot -->
+<tr>
+  <td>Max Speed of LP</td>
+  <td>${maxSpeed} km/h</td>
+  <td>Time</td>
+  <td>${maxSpeedTime}</td>
+  <td>Station</td>
+  <td>${maxSpeedStation}</td>
+</tr>
+
+  </table>`;
+
+
 
   /* ------- Table for Speeds Before Stop ------- */
   const dataTableRows = speedBeforeStops.map(r=>{
@@ -571,20 +658,42 @@ document.getElementById("plotGraph").addEventListener("click", () => {
     </table>`;
 
   /* ------- Irregularities ------- */
-  let irregularityNote = "";
-  if(irregularities.length > 0){
-    irregularityNote =
-      `<table style="width:80%;margin:auto;border:2px solid red;">
-        <tr>
-          <th colspan="2" style="background:#ffe5e5;color:#b00000;">⚠ Irregularities Detected</th>
-        </tr>
-        ${irregularities.map((x,i)=>
-          `<tr>
-            <td style="width:50px;font-weight:bold;">${i+1}</td>
-            <td style="text-align:left;">${x}</td>
-           </tr>`).join("")}
-      </table>`;
+ let irregularityNote = "";
+
+if (irregularities.length > 0) {
+
+  irregularityNote =
+    `<table style="width:95%;margin:auto;border:2px solid red;border-collapse:collapse;">
+      <tr>
+        <th colspan="6" style="background:#ffe5e5;color:#b00000;">
+          ⚠ Irregularities Detected
+        </th>
+      </tr>
+  `;
+
+  // Loop through irregularities in steps of 3
+  for (let i = 0; i < irregularities.length; i += 3) {
+
+    irregularityNote += `<tr>`;
+
+    for (let j = 0; j < 3; j++) {
+      if (irregularities[i + j]) {
+        irregularityNote += `
+          <td style="width:40px;font-weight:bold;text-align:center;">${i + j + 1}</td>
+          <td style="text-align:left;">${irregularities[i + j]}</td>
+        `;
+      } else {
+        // Fill empty cells if less than 3 items in last row
+        irregularityNote += `<td></td><td></td>`;
+      }
+    }
+
+    irregularityNote += `</tr>`;
   }
+
+  irregularityNote += `</table>`;
+}
+
 
   document.getElementById("speedTableContainer").innerHTML =
       summary + "<br>" + dataTable + irregularityNote;
@@ -680,7 +789,7 @@ document.getElementById("plotGraph").addEventListener("click", () => {
             if(!p) return;
 
             if(d===1000){
-              ctx.fillStyle="blue";
+              ctx.fillStyle="red";
               ctx.beginPath();
               ctx.moveTo(p.x, p.y-6);
               ctx.lineTo(p.x-5, p.y+5);
@@ -738,7 +847,7 @@ document.getElementById("plotGraph").addEventListener("click", () => {
       },
       plugins:{ legend:{display:false} }
     },
-    plugins:[multiColorLine, stationLines, distanceMarkers, analysisText]
+    plugins:[multiColorLine, stationLines, distanceMarkers, analysisText, speedLimitLines]
   });
 
 });
