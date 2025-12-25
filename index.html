@@ -1,0 +1,925 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>GPS Time vs Speed — Final Brake Feel & Power Analysis</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+<style>
+  body{font-family:Arial, sans-serif;margin:20px;background:#fff;color:#111}
+
+  .main-heading{
+    text-align:center;
+    font-size:28px;
+    font-weight:bold;
+    margin-bottom:5px;
+    color:#003366;
+  }
+  .sub-heading{
+    text-align:center;
+    font-size:22px;
+    font-weight:bold;
+    margin-bottom:20px;
+    color:#0055aa;
+  }
+
+  .controls{
+    width:95%;
+    margin:auto;
+  }
+  .form-box{
+    width:100%;
+    margin:auto;
+    padding:15px;
+    background:#f4f7fc;
+    border-radius:12px;
+    border:2px solid #d0d7e2;
+  }
+  .form-box h3{
+    text-align:center;
+    margin-bottom:15px;
+    font-size:22px;
+    color:#003366;
+  }
+  .row{
+    display:flex;
+    align-items:center;
+    gap:12px;
+    margin:10px 0;
+  }
+  .row label{
+    width:140px;
+    font-weight:bold;
+    font-size:15px;
+  }
+  .row input, .row select{
+    flex:1;
+    padding:6px 10px;
+    font-size:15px;
+    border:1px solid #999;
+    border-radius:5px;
+  }
+
+  button{
+    margin:4px;
+    padding:8px 14px;
+    font-size:15px;
+    background:#2b6cb0;
+    color:#fff;
+    border:none;
+    border-radius:6px;
+    cursor:pointer;
+  }
+  button:hover{background:#1a4f88}
+
+  canvas{width:100%;height:760px}
+
+  .legend-note{text-align:center;margin-top:8px;font-size:15px;font-weight:600}
+
+  table{
+    width:95%;
+    margin:15px auto;
+    border-collapse:collapse;
+    font-size:18px;
+    text-align:center;
+  }
+  th,td{
+    border:1px solid #000;
+    padding:6px 8px;
+    font-weight:600;
+  }
+  th{background:#f2f2f2}
+
+  .highlight-irregular{color:red;font-weight:bold;font-size:19px;}
+  .highlight-alerti{color:red;font-weight:bold;}
+  .highlight-alert{color:red;font-weight:bold;}
+
+  .page-break{page-break-before:always}
+
+  @page{size:A4 landscape;margin:12mm 8mm 12mm 8mm}
+  @media print{
+    .controls{display:none}
+    table{width:100%;font-size:16px}
+    canvas{height:650px!important;margin-top:0}
+    .main-heading{font-size:24px;margin-bottom:0}
+    .sub-heading{font-size:18px;margin-bottom:10px}
+  }
+</style>
+</head>
+
+<body>
+
+<div class="main-heading">Central Railway, Elect(TRO) Bhusawal</div>
+<div class="sub-heading">SPM Analysis through RTIS data</div>
+
+<div class="controls">
+
+  <!-- =========== STEP 1: TWO CSV FILE INPUTS ============= -->
+  <div class="form-box" style="border-color:#004a99;">
+    <h3 style="color:#003366;">📁 Step 1: Load RTIS CSV Files</h3>
+
+    <div class="row" style="flex-direction:column; gap:12px;">
+
+      <div style="display:flex; align-items:center; gap:10px;">
+        <label style="width:180px;">Primary CSV File:</label>
+        <input type="file" id="csvFile1" accept=".csv" />
+      </div>
+
+      <div style="display:flex; align-items:center; gap:10px;">
+        <label style="width:180px;">Additional CSV File:</label>
+        <input type="file" id="csvFile2" accept=".csv" />
+      </div>
+
+    </div>
+
+    <div id="fileStatus" style="text-align:center;margin-top:8px;font-weight:bold;color:#444;">
+      Please choose 1 or 2 CSV files...
+    </div>
+  </div>
+
+  <br>
+
+  <!-- ===================== STEP 2: TRIP DETAILS ===================== -->
+  <div class="form-box" id="tripBox" style="opacity:0.4;pointer-events:none;">
+    <h3>🚆 Step 2: Enter Trip Details</h3>
+
+    <div class="row">
+      <label>Driver Name:</label>
+      <input type="text" id="driverName" placeholder="Full Name" />
+    </div>
+
+    <div class="row">
+      <label>Designation:</label>
+      <input type="text" id="driverDesig" placeholder="LP / ALP / Goods / MailExp" />
+
+      <label>HQ:</label>
+      <input type="text" id="driverHQ" placeholder="HQ (e.g. BSL, ET, SUR)" />
+    </div>
+
+    <div class="row">
+      <label>Train No:</label>
+      <input type="text" id="trainNo" placeholder="Train No" />
+
+      <label>Loco No:</label>
+      <input type="text" id="locoNo" placeholder="Loco Number" />
+    </div>
+
+    <div class="row">
+      <label>Section From:</label>
+      <input type="text" id="secFrom" placeholder="From Station" />
+      <label>To:</label>
+      <input type="text" id="secTo" placeholder="To Station" />
+    </div>
+
+    <div class="row">
+      <label>Train Date:</label>
+      <input type="date" id="runDate" />
+
+      <label>SPM Analysis Date:</label>
+      <input type="date" id="analysedOn" />
+    </div>
+
+    <div class="row">
+      <label>Analysed By:</label>
+      <input type="text" id="analysedBy" placeholder="Analysed By" />
+    </div>
+
+    <div class="row">
+      <label>Start Station:</label>
+      <select id="startStation"><option value="">--Select--</option></select>
+
+      <label>End Station:</label>
+      <select id="endStation"><option value="">--Select--</option></select>
+    </div>
+
+    <div class="row" style="justify-content:center;">
+      <button id="plotGraph">Plot Graph</button>
+      <button onclick="window.print()">🖨 Print</button>
+      <button id="exportSheet">Export to Google Sheet</button>
+    </div>
+
+  </div>
+</div>
+
+
+<canvas id="speedChart"></canvas>
+<div class="legend-note">▲ 1000 m Σ 110 m (red = triangle, green = sigma)</div>
+<div id="speedTableContainer" class="page-break"></div>
+
+<script>
+/* #############################################################
+   GLOBAL VARIABLES
+############################################################# */
+let allData = [], currentChart = null;
+
+/* ==============================================================
+   STEP 1 — MULTI CSV IMPORT + MERGE
+============================================================== */
+
+document.getElementById("csvFile1").addEventListener("change", mergeFiles);
+document.getElementById("csvFile2").addEventListener("change", mergeFiles);
+
+async function loadCSV(file) {
+  const text = await file.text();
+  const lines = text.split(/\r?\n/).filter(l => l.trim() !== "");
+
+  const headers = lines[0].split(",").map(v => v.trim().toLowerCase());
+
+  let g = headers.findIndex(v => v.includes("gps time"));
+  if (g === -1) g = headers.findIndex(v => v.includes("logging time"));
+  let s = headers.findIndex(v => v === "speed");
+
+  let st = headers.findIndex(v => v.includes("stationcode"));
+  if (st === -1) st = headers.findIndex(v => v.includes("station code"));
+  if (st === -1) st = headers.findIndex(v => v.includes("stncode"));
+  if (st === -1) st = headers.findIndex(v => v === "station");
+
+  let d = headers.findIndex(v => v.includes("distfromprev"));
+  if (d === -1) d = headers.findIndex(v => v.includes("distance"));
+  if (d === -1) d = headers.findIndex(v => v.includes("dist"));
+
+  return lines.slice(1).map(l => {
+    const c = l.split(",");
+    return {
+      gps:(c[g]||"").trim(),
+      spd:parseFloat((c[s]||"").trim()),
+      st:(c[st]||"").trim(),
+      dist:parseFloat((c[d]||"0").trim())||0
+    };
+  }).filter(x => x.gps && !isNaN(x.spd));
+}
+
+async function mergeFiles() {
+
+  const f1 = document.getElementById("csvFile1").files[0];
+  const f2 = document.getElementById("csvFile2").files[0];
+
+  if (!f1 && !f2) return;
+
+  allData = []; 
+
+  if (f1) allData.push(...await loadCSV(f1));
+  if (f2) allData.push(...await loadCSV(f2));
+
+  allData.sort((a,b) => a.gps.localeCompare(b.gps));
+
+  const stationSet = new Set(allData.map(x => x.st).filter(Boolean));
+  const stations = [...stationSet];
+
+  const startSel = document.getElementById("startStation");
+  const endSel = document.getElementById("endStation");
+
+  startSel.innerHTML = '<option value="">--Select--</option>';
+  endSel.innerHTML   = '<option value="">--Select--</option>';
+
+  stations.forEach(st => {
+    startSel.innerHTML += `<option value="${st}">${st}</option>`;
+    endSel.innerHTML   += `<option value="${st}">${st}</option>`;
+  });
+
+  const tripBox = document.getElementById("tripBox");
+  tripBox.style.opacity = "1";
+  tripBox.style.pointerEvents = "auto";
+
+  document.getElementById("fileStatus").innerHTML =
+    `✅ CSV Files Loaded & Merged Successfully (${allData.length} rows)`;
+
+  alert("CSV files merged successfully. Now enter trip details and plot graph.");
+}
+
+/* ==============================================================
+   HELPER FUNCTIONS  (NO CHANGE)
+============================================================== */
+
+function findZeroIndex(d, code, from) {
+  for (let i = from; i < d.length; i++)
+    if (d[i].st === code && d[i].spd === 0) return i;
+  return -1;
+}
+
+function calculateDuration(startStr, endStr) {
+  startStr = startStr.trim();
+  endStr = endStr.trim();
+
+  const startParts = startStr.split(" ");
+  const endParts = endStr.split(" ");
+
+  const startTime = startParts.length > 1 ? startParts[1] : startParts[0];
+  const endTime = endParts.length > 1 ? endParts[1] : endParts[0];
+
+  const toSeconds = (t) => {
+    const [h,m,s] = t.split(":").map(Number);
+    return h*3600 + m*60 + s;
+  };
+
+  let diff = Math.abs(toSeconds(startTime) - toSeconds(endTime));
+
+  const hrs = Math.floor(diff/3600);
+  const mins = Math.floor((diff%3600)/60);
+  const secs = diff % 60;
+
+  return { formatted: `${hrs}h ${mins}m ${secs}s` };
+}
+
+/* ==============================================================
+   BRAKE DETECTION FUNCTION (NO CHANGE)
+============================================================== */
+
+function detectBrake(seg, min = 10, max = 30, start) {
+  const tol = 0.3;
+  const riseTol = 1.0;   // <-- allows speed fluctuations
+
+  let best = null;
+  const prefix = start.substring(0, 2).toUpperCase();
+
+  for (let i = 0; i < seg.length - 1; i++) {
+
+    if (!seg[i].st.toUpperCase().startsWith(prefix)) break;
+
+    const s = seg[i].spd;
+    const n = seg[i + 1].spd;
+
+    if (s < min || s > max) continue;
+
+    if (n < s - tol) {
+
+      let minV = n, minIdx = i + 1;
+
+      for (let k = i + 1; k < seg.length - 1; k++) {
+
+        if (!seg[k].st.toUpperCase().startsWith(prefix)) break;
+
+        if (seg[k].spd < minV) {
+          minV = seg[k].spd;
+          minIdx = k;
+        }
+
+        // Only stop when speed rises significantly
+        if (seg[k + 1].spd > seg[k].spd + riseTol) break;
+      }
+
+      const dropVal = s - minV;
+
+      if (!best || dropVal > best.dropVal) {
+        best = {
+          text: `PASS (↓${s.toFixed(1)}→${minV.toFixed(1)} km/h, drop ${dropVal.toFixed(1)} km/h)`,
+          startIndex: i,
+          endIndex: minIdx,
+          startVal: s,
+          minVal: minV,
+          dropVal
+        };
+      }
+    }
+  }
+
+  return best || { text: "FAIL (no event)", startIndex: -1, endIndex: -1 };
+}
+
+/* ==============================================================
+   MAIN PLOT LOGIC (NO CHANGE EXCEPT FILE MERGE)
+============================================================== */
+
+document.getElementById("plotGraph").addEventListener("click", () => {
+
+  if (allData.length === 0) return alert("Load CSV first.");
+
+  const start = document.getElementById("startStation").value.trim().toUpperCase();
+  const end = document.getElementById("endStation").value.trim().toUpperCase();
+
+  const driver = document.getElementById("driverName").value.trim();
+  const driverDesig = document.getElementById("driverDesig").value.trim();
+  const driverHQ = document.getElementById("driverHQ").value.trim();
+
+  const train = document.getElementById("trainNo").value.trim();
+  const loco = document.getElementById("locoNo").value.trim();
+
+  const secFrom = document.getElementById("secFrom").value.trim();
+  const secTo = document.getElementById("secTo").value.trim();
+  const section = secFrom && secTo ? `${secFrom} → ${secTo}` : "-";
+
+  const runDate = document.getElementById("runDate").value;
+  const analysedBy = document.getElementById("analysedBy").value.trim();
+  const analysedOn = document.getElementById("analysedOn").value;
+
+/* -------- Speed Limit Horizontal Lines (110 & 130 kmph) -------- */
+const speedLimitLines = {
+  id: "speedLimitLines",
+  afterDraw(chart) {
+    const ctx = chart.ctx;
+    const yScale = chart.scales.y;
+    const left = chart.chartArea.left;
+    const right = chart.chartArea.right;
+
+    ctx.save();
+    ctx.setLineDash([6, 6]);
+
+    // 110 kmph line
+    let y110 = yScale.getPixelForValue(110);
+    ctx.strokeStyle = "green";
+    ctx.beginPath();
+    ctx.moveTo(left, y110);
+    ctx.lineTo(right, y110);
+    ctx.stroke();
+
+    // 130 kmph line
+    let y130 = yScale.getPixelForValue(130);
+    ctx.strokeStyle = "red";
+    ctx.beginPath();
+    ctx.moveTo(left, y130);
+    ctx.lineTo(right, y130);
+    ctx.stroke();
+
+    ctx.restore();
+  }
+};
+
+
+  const prefix = start.substring(0, 2).toUpperCase();
+
+  const startIdx = allData.findIndex(d => d.st && d.st.toUpperCase().startsWith(prefix));
+  const endIdx = allData.findIndex((d,i)=> i > startIdx && d.st === end);
+
+  if (startIdx === -1 || endIdx === -1)
+    return alert("Stations not found or invalid order");
+
+  const sZero = findZeroIndex(allData, start, startIdx);
+  const eZero = findZeroIndex(allData, end, endIdx);
+
+  if (sZero === -1 || eZero === -1)
+    return alert("Stop points not detected.");
+
+  let endRise = -1;
+  for (let i = eZero + 1; i < allData.length; i++) {
+    if (allData[i].spd >= 0.4) { endRise = i; break; }
+  }
+  if (endRise === -1) return alert("No rise detected after end station.");
+
+  const seg = allData.slice(sZero, endRise + 1);
+
+  /* ------- Format Times ------- */
+  function formatDate(d){
+    if(!d) return "-";
+    const dt = new Date(d);
+    if(isNaN(dt)) return "-";
+    return `${String(dt.getDate()).padStart(2,'0')}-${String(dt.getMonth()+1).padStart(2,'0')}-${dt.getFullYear()}`;
+  }
+
+  function formatDateTime(str){
+    if(!str) return "-";
+    const [d,t] = str.split(" ");
+    const tb = t.split(":");
+    return `${formatDate(d)} ${tb[0]}:${tb[1]}`;
+  }
+
+  let prevDate="", prevTime="";
+  let secondCounter = 0;
+
+  const labels = seg.map(x=>{
+    const [d,t] = x.gps.split(" ");
+    const showDate = (d !== prevDate);
+    if(x.gps === prevTime) secondCounter++;
+    else { secondCounter = 0; prevTime = x.gps; }
+    prevDate = d;
+    const finalDate = showDate ? formatDate(d) : "";
+    const finalTime = t + (secondCounter>0 ? ":"+String(secondCounter).padStart(2,"0") : "");
+    return showDate ? `${finalDate} ${finalTime}` : finalTime;
+  });
+
+  const speeds = seg.map(x=>x.spd);
+  const dists = seg.map(x=>x.dist);
+/* -------- Max Speed of Loco Pilot (RTIS per-second data) -------- */
+let maxRec = seg[0];
+
+for (let i = 1; i < seg.length; i++) {
+  if (seg[i].spd > maxRec.spd) {
+    maxRec = seg[i];
+  }
+}
+
+const maxSpeed = maxRec.spd.toFixed(1);
+const maxSpeedTime = maxRec.gps || "-";
+const maxSpeedStation = maxRec.st || "-";
+
+
+  /* ------- Station Indices ------- */
+  const firstIdx = {};
+  for(let i=0;i<seg.length;i++){
+    const s = seg[i].st;
+    if(s && !firstIdx[s]) firstIdx[s] = i;
+  }
+
+  const stations = Object.keys(firstIdx).map(s=>({
+    st:s,
+    index:firstIdx[s],
+    stop: seg[firstIdx[s]].spd === 0
+  }));
+
+  const feel = detectBrake(seg,10,20,start);
+  const power = detectBrake(seg,60,85,start);
+  window.brakeFeelText = feel.text;
+  window.brakePowerText = power.text;
+
+
+  /* ------- Stop Station Speed Table ------- */
+  const distCheck = [2000,1000,750,500,110,20];
+  const irregularities = [];
+
+  const stopStations = [];
+  const seen = new Set();
+
+  for(let i=0;i<seg.length;i++){
+    if(seg[i].spd === 0 && seg[i].st && !seen.has(seg[i].st)){
+      seen.add(seg[i].st);
+      let startTime="-";
+      for(let j=i+1;j<seg.length;j++){
+        if(seg[j].spd > 0){ startTime = seg[j].gps; break; }
+      }
+      stopStations.push({
+        index:i,
+        station:seg[i].st,
+        stopTime:seg[i].gps,
+        startTime
+      });
+    }
+  }
+
+  const speedBeforeStops = stopStations.map(stop=>{
+    let res = {station:stop.station, stopTime:stop.stopTime, startTime:stop.startTime};
+    let cum=0, found={}, foundIdx={};
+    for(let i=stop.index;i>=0;i--){
+      cum += dists[i] || 0;
+      for(const d of distCheck){
+        if(!found[d] && cum >= d){
+          found[d] = seg[i].spd;
+          foundIdx[d] = i;
+        }
+      }
+    }
+    distCheck.forEach(d=>{
+      res["s"+d] = found[d] ?? "-";
+      res["idx"+d] = foundIdx[d] ?? -1;
+    });
+
+    if(res.s1000 > 50) irregularities.push(`Station ${res.station}: Speed @1000 m = ${res.s1000}`);
+    if(res.s110 > 20) irregularities.push(`Station ${res.station}: Speed @110 m = ${res.s110}`);
+    if(res.s20 >= 10) irregularities.push(`Station ${res.station}: Speed @20 m = ${res.s20}`);
+
+    return res;
+  });
+
+  /* ------- Summary Table ------- */
+ const summary =
+  `<table style="width:95%;margin:0 auto;border-collapse:collapse;">
+    <tr>
+      <th colspan="6">Performance Analysis Summary</th>
+    </tr>
+
+    <!-- Row 1 -->
+    <tr>
+      <td>LP Name</td>
+      <td>${driver || "-"}</td>
+      <td>Designation</td>
+      <td>${driverDesig || "-"}</td>
+      <td>HQ</td>
+      <td>${driverHQ || "-"}</td>
+    </tr>
+
+    <!-- Row 2 -->
+    <tr>
+      <td>Date</td>
+      <td>${formatDate(runDate)}</td>
+      <td>Train No</td>
+      <td>${train || "-"}</td>
+      <td>Loco No</td>
+      <td>${loco || "-"}</td>
+    </tr>
+
+    <!-- Row 3 -->
+    <tr> 
+      <td>Section</td>
+      <td>${section || "-"}</td>
+      <td>Analysed By</td>
+      <td>${analysedBy || "-"}</td>
+      <td>Analysed On</td>
+      <td>${formatDate(analysedOn) || "-"}</td>
+    </tr>
+
+     <!-- Row 4 -->
+    <tr>
+      <td>Brake Feel Test</td>
+      <td colspan="2">${feel.text}</td>
+      <td>Brake Power Test</td>
+      <td colspan="2">${power.text}</td>
+    </tr>
+<!-- Row 5 : Max Speed of Loco Pilot -->
+<tr>
+  <td>Max Speed of LP</td>
+  <td>${maxSpeed} km/h</td>
+  <td>Time</td>
+  <td>${maxSpeedTime}</td>
+  <td>Station</td>
+  <td>${maxSpeedStation}</td>
+</tr>
+
+  </table>`;
+
+
+
+  /* ------- Table for Speeds Before Stop ------- */
+  const dataTableRows = speedBeforeStops.map(r=>{
+    return `
+      <tr>
+        <td>${r.station}</td>
+        <td>${formatDateTime(r.stopTime)}</td>
+        <td>${formatDateTime(r.startTime)}</td>
+        ${distCheck.map(d=>{
+          const raw = r["s"+d];
+          const v = (raw === "-" ? "-" : Math.round(raw));
+          if(v === "-") return `<td>-</td>`;
+          if(d===1000 && v>50) return `<td class="highlight-irregular">${v}</td>`;
+          if(d===110  && v>=20) return `<td class="highlight-alerti">${v}</td>`;
+          if(d===20  && v>=10) return `<td class="highlight-alert">${v}</td>`;
+          return `<td>${v}</td>`;
+        }).join("")}
+      </tr>`;
+  }).join("");
+
+  const dataTable =
+    `<table>
+      <tr>
+        <th>Station</th>
+        <th>Stop Time</th>
+        <th>Start Time</th>
+        ${distCheck.map(d=>`<th>Speed @${d} m</th>`).join("")}
+      </tr>
+      ${dataTableRows}
+    </table>`;
+
+  /* ------- Irregularities ------- */
+ let irregularityNote = "";
+
+if (irregularities.length > 0) {
+
+  irregularityNote =
+    `<table style="width:95%;margin:auto;border:2px solid red;border-collapse:collapse;">
+      <tr>
+        <th colspan="6" style="background:#ffe5e5;color:#b00000;">
+          ⚠ Irregularities Detected
+        </th>
+      </tr>
+  `;
+
+  // Loop through irregularities in steps of 3
+  for (let i = 0; i < irregularities.length; i += 3) {
+
+    irregularityNote += `<tr>`;
+
+    for (let j = 0; j < 3; j++) {
+      if (irregularities[i + j]) {
+        irregularityNote += `
+          <td style="width:40px;font-weight:bold;text-align:center;">${i + j + 1}</td>
+          <td style="text-align:left;">${irregularities[i + j]}</td>
+        `;
+      } else {
+        // Fill empty cells if less than 3 items in last row
+        irregularityNote += `<td></td><td></td>`;
+      }
+    }
+
+    irregularityNote += `</tr>`;
+  }
+
+  irregularityNote += `</table>`;
+}
+
+
+  document.getElementById("speedTableContainer").innerHTML =
+      summary + "<br>" + dataTable + irregularityNote;
+
+  /* ------- Graph Setup ------- */
+  const fS = new Array(speeds.length).fill(null),
+        fE = new Array(speeds.length).fill(null),
+        pS = new Array(speeds.length).fill(null),
+        pE = new Array(speeds.length).fill(null);
+
+  if(feel.startIndex !== -1){
+    fS[feel.startIndex] = feel.startVal;
+    fE[feel.endIndex] = feel.minVal;
+  }
+  if(power.startIndex !== -1){
+    pS[power.startIndex] = power.startVal;
+    pE[power.endIndex] = power.minVal;
+  }
+
+  function speedColor(s){
+    if(s<=20) return "gray";
+    if(s<=40) return "blue";
+    if(s<=110) return "green";
+    if(s<=130) return "orange";
+    return "red";
+  }
+
+  const multiColorLine = {
+    id:"multiColor",
+    afterDatasetsDraw(chart){
+      const ctx=chart.ctx, m=chart.getDatasetMeta(0).data;
+      ctx.save();
+      ctx.lineWidth=2;
+      for(let i=1;i<m.length;i++){
+        ctx.beginPath();
+        ctx.strokeStyle = speedColor(chart.data.datasets[0].data[i]);
+        ctx.moveTo(m[i-1].x,m[i-1].y);
+        ctx.lineTo(m[i].x,m[i].y);
+        ctx.stroke();
+      }
+      ctx.restore();
+    }
+  };
+
+  const stationLines = {
+    id: "stationLines",
+    afterDatasetsDraw(chart) {
+      const ctx = chart.ctx;
+      const pts = chart.getDatasetMeta(0).data;
+      const bottom = chart.chartArea.bottom;
+
+      ctx.save();
+      ctx.font = "bold 10px Arial";
+      ctx.textAlign = "center";
+
+      stations.forEach(s => {
+        const p = pts[s.index];
+        if (!p) return;
+
+        ctx.setLineDash([4, 4]);
+        ctx.strokeStyle = s.stop ? "red" : "gray";
+        ctx.beginPath();
+        ctx.moveTo(p.x, chart.chartArea.top);
+        ctx.lineTo(p.x, bottom);
+        ctx.stroke();
+        ctx.setLineDash([]);
+
+        ctx.save();
+        ctx.fillStyle = s.stop ? "red" : "black";
+        ctx.translate(p.x, bottom + 15);
+        ctx.rotate(-Math.PI / 2);
+        ctx.fillText(s.st, 0, 0);
+        ctx.restore();
+      });
+
+      ctx.restore();
+    }
+  };
+
+  const distanceMarkers = {
+    id:"distanceMarkers",
+    afterDatasetsDraw(chart){
+      const ctx=chart.ctx;
+      const pts = chart.getDatasetMeta(0).data;
+
+      ctx.save();
+
+      speedBeforeStops.forEach(r=>{
+        [1000,110].forEach(d=>{
+          const idx = r[`idx${d}`];
+          if(idx>=0){
+            const p = pts[idx];
+            if(!p) return;
+
+            if(d===1000){
+              ctx.fillStyle="red";
+              ctx.beginPath();
+              ctx.moveTo(p.x, p.y-6);
+              ctx.lineTo(p.x-5, p.y+5);
+              ctx.lineTo(p.x+5, p.y+5);
+              ctx.closePath();
+              ctx.fill();
+            }
+            if(d===110){
+              ctx.fillStyle="green";
+              ctx.font="bold 18px Arial";
+              ctx.fillText("Σ", p.x-5, p.y+6);
+            }
+          }
+        });
+      });
+
+      ctx.restore();
+    }
+  };
+
+  const analysisText = {
+    id:"analysisText",
+    afterDraw(chart){
+      const ctx=chart.ctx;
+      ctx.save();
+      ctx.font="bold 14px Arial";
+      ctx.fillStyle="black";
+      ctx.fillText(`Train ${train} Loco ${loco} - ${section}`, chart.chartArea.left+10, chart.chartArea.top-10);
+      ctx.restore();
+    }
+  };
+
+  if(currentChart) currentChart.destroy();
+  const ctx = document.getElementById("speedChart").getContext("2d");
+
+  currentChart = new Chart(ctx,{
+    type:"line",
+    data:{
+      labels,
+      datasets:[
+        { label:"Speed", data:speeds, borderColor:"#999", borderWidth:1.5, pointRadius:0 },
+        { data:fS, showLine:false, pointRadius:6, borderColor:"red", pointStyle:"circle" },
+        { data:fE, showLine:false, pointRadius:6, borderColor:"green", pointStyle:"triangle" },
+        { data:pS, showLine:false, pointRadius:6, borderColor:"blue", pointStyle:"circle" },
+        { data:pE, showLine:false, pointRadius:6, borderColor:"purple", pointStyle:"triangle" }
+      ]
+    },
+    options:{
+      responsive:true,
+      animation:false,
+      layout:{ padding:{ top:40,bottom:80 }},
+      scales:{
+        x:{ title:{display:true,text:"Time (HH:MM:SS)"} },
+        y:{ title:{display:true,text:"Speed (km/h)"}, min:0 }
+      },
+      plugins:{ legend:{display:false} }
+    },
+    plugins:[multiColorLine, stationLines, distanceMarkers, analysisText, speedLimitLines]
+  });
+
+});
+document.getElementById("exportSheet").addEventListener("click", () => {
+
+  if (!allData.length) {
+    alert("Load and analyze CSV first.");
+    return;
+  }
+
+  // Collect required fields safely
+  const payload = {
+    driverName: document.getElementById("driverName").value.trim(),
+    designation: document.getElementById("driverDesig").value.trim(),
+    hq: document.getElementById("driverHQ").value.trim(),
+    trainNo: document.getElementById("trainNo").value.trim(),
+    locoNo: document.getElementById("locoNo").value.trim(),
+    section: document.getElementById("secFrom").value.trim() + " → " +
+             document.getElementById("secTo").value.trim(),
+    date: document.getElementById("runDate").value,
+    analysedBy: document.getElementById("analysedBy").value.trim(),
+    analysedOn: document.getElementById("analysedOn").value,
+    brakeFeel: window.brakeFeelText || "-",
+    brakePower: window.brakePowerText || "-",
+    abnormalities: collectIrregularities()
+  };
+
+  const url = "https://script.google.com/macros/s/AKfycbzfB4D82cU2dbvMoCZtCGENbvOoXlwGIBd8ISmMg4NbIC38rRfaav3gXK4GFyvVswUnrw/exec";
+
+  fetch(url, {
+    method: "POST",
+    mode: "no-cors",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload)
+  })
+  .then(() => alert("Data exported to Google Sheet successfully!"))
+  .catch(err => {
+    console.error(err);
+    alert("Error sending data to Google Sheet.");
+  });
+});
+
+
+// Extract irregularities from bottom table
+function collectIrregularities() {
+  const tables = document.querySelectorAll("#speedTableContainer table");
+
+  let irregularityTable = null;
+
+  tables.forEach(t => {
+    const firstCell = t.querySelector("th, td");
+    if (firstCell && firstCell.innerText.includes("Irregular")) {
+      irregularityTable = t;
+    }
+  });
+
+  if (!irregularityTable) return "Nil";
+
+  let arr = [];
+  const rows = irregularityTable.querySelectorAll("tr");
+
+  rows.forEach((r, idx) => {
+    if (idx === 0) return;
+    const cols = r.querySelectorAll("td");
+    if (cols.length > 1 && cols[1].innerText.trim()) {
+      arr.push(cols[1].innerText.trim());
+    }
+  });
+
+  return arr.length ? arr.join("; ") : "Nil";
+}
+</script>
+
+</body>
+</html>
